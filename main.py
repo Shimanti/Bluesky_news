@@ -178,7 +178,7 @@ def main():
         sys.exit(1)
     
     # Step 2: Generate post
-    post_text = create_bluesky_text(article_title)
+    # post_text = create_bluesky_text(article_title)
     if not post_text:
         print("❌ FATAL: Could not generate post text")
         sys.exit(1)
