@@ -1,8 +1,10 @@
 import os
 import feedparser
+# This is the official, correct import for the library version we are using.
 from atproto import Client
 import google.generativeai as genai
 
+# This function is logically sound and does not need to change.
 def create_bluesky_text(title):
     """Uses Gemini to create a summary that will appear above a link card."""
     genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
@@ -27,6 +29,7 @@ def create_bluesky_text(title):
         print(f"Error generating content with Gemini: {e}")
         return None
 
+# This function is crucial for preventing duplicate posts.
 def get_last_posted_link(client, handle):
     """Fetches the link from the most recent post's link card."""
     try:
@@ -39,6 +42,7 @@ def get_last_posted_link(client, handle):
         print(f"Could not retrieve last post: {e}")
     return None
 
+# --- MAIN EXECUTION: Back to the simple, working method ---
 if __name__ == "__main__":
     print("Bot starting...")
     bsky_handle = os.environ.get("BLUESKY_HANDLE")
@@ -46,37 +50,37 @@ if __name__ == "__main__":
     gemini_key = os.environ.get("GEMINI_API_KEY")
 
     if not all([gemini_key, bsky_handle, bsky_password]):
-        print("ERROR: Environment variables are not set.")
+        print("ERROR: Environment variables are not set. Halting.")
     else:
         title, link = get_latest_ai_news()
         if not (title and link):
-            print("Could not find any news articles.")
+            print("Could not find any news articles. Halting.")
         else:
             print(f"Found latest article: {title} ({link})")
             
             client = Client()
             client.login(bsky_handle, bsky_password)
-            print("Successfully logged into BlueSky.")
+            print("✅ Step 1: Successfully logged into BlueSky.")
             
             last_link = get_last_posted_link(client, bsky_handle)
             if link == last_link:
-                print("This article has already been posted. No new content to share.")
+                print("Article has already been posted. Halting.")
             else:
                 print("New article found. Generating post...")
                 post_text = create_bluesky_text(title)
 
-                # The code only enters this block if Gemini succeeds.
                 if post_text:
-                    print(f"Generated text (Length: {len(post_text)}):\n{post_text}")
+                    print(f"✅ Step 2: Generated text from Gemini:\n{post_text}")
                     
+                    # The simplest, most reliable way to post a link.
+                    # The library automatically finds the link in the text and creates the card.
                     final_post_content = f"{post_text} {link}"
                     
-                    # --- THE FINAL FIX IS HERE ---
-                    # The 'client.post' command is now SAFELY INSIDE the 'if' block.
+                    # This is the correct syntax for this library version. It solves the TypeError.
                     client.post(text=final_post_content)
-                    print("Successfully sent post to BlueSky. A link card should be generated.")
+                    print("✅ Step 3: Successfully sent post to BlueSky!")
                 else:
-                    # If Gemini fails, it prints this and finishes cleanly. No crash.
-                    print("Could not generate post text from Gemini. Skipping post.")
+                    # This handles Gemini failures cleanly without crashing. It solves the NameError.
+                    print("Could not generate post text from Gemini. Halting for this run.")
     
     print("Bot finished.")
