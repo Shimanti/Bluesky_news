@@ -3,7 +3,6 @@ import feedparser
 from atproto import Client
 import google.generativeai as genai
 
-# This function is correct and does not need to change.
 def create_bluesky_text(title):
     """Uses Gemini to create a summary that will appear above a link card."""
     genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
@@ -15,7 +14,7 @@ def create_bluesky_text(title):
     - Your response must be under 290 characters.
     - Summarize the article title in an engaging and concise way.
     - Include 2-3 relevant hashtags like #AI, #TechNews, #ArtificialIntelligence.
-    - CRITICAL: DO NOT include any @ mentions or user handles in your response.
+    - DO NOT include the URL or any @ mentions in your response.
 
     Article Title: "{title}"
     
@@ -28,7 +27,6 @@ def create_bluesky_text(title):
         print(f"Error generating content with Gemini: {e}")
         return None
 
-# This function is correct and does not need to change.
 def get_last_posted_link(client, handle):
     """Fetches the link from the most recent post's link card."""
     try:
@@ -41,7 +39,6 @@ def get_last_posted_link(client, handle):
         print(f"Could not retrieve last post: {e}")
     return None
 
-# --- MAIN EXECUTION: The final, correct, and explicit method ---
 if __name__ == "__main__":
     print("Bot starting...")
     bsky_handle = os.environ.get("BLUESKY_HANDLE")
@@ -71,23 +68,14 @@ if __name__ == "__main__":
                 if post_text:
                     print(f"✅ Step 2: Generated text from Gemini:\n{post_text}")
                     
-                    # --- THE FINAL FIX IS HERE ---
-                    # We are now explicitly creating the link card (embed).
-                    # This is the official, non-magical way to post a link.
-                    try:
-                        # Step A: Ask BlueSky to process the URL and prepare the card.
-                        response = client.app.bsky.embed.external.get(uri=link)
-                        embed = response.embed
-
-                        # Step B: Post the clean text AND the prepared card.
-                        # The link is NOT in the text itself.
-                        client.post(text=post_text, embed=embed)
-                        print("✅ Step 3: SUCCESS! Post has been sent to BlueSky!")
-
-                    except Exception as e:
-                        print(f"CRITICAL ERROR during posting: {e}")
-                        print("This may be due to a bad link or temporary server issue.")
-
+                    final_post_content = f"{post_text} {link}"
+                    
+                    # --- THE FINAL, SURGICAL FIX IS HERE ---
+                    # We are turning off the "magic" facet detection that causes the crash.
+                    # The library will now create a link card without trying to find mentions.
+                    client.post(text=final_post_content, facets=[])
+                    
+                    print("✅ Step 3: SUCCESS! Post has been sent to BlueSky!")
                 else:
                     print("Could not generate post text from Gemini. Halting for this run.")
     
