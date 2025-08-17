@@ -1,9 +1,7 @@
 import os
 import feedparser
-# --- THE FIX IS HERE ---
 from atproto.xrpc_client import Client
 from atproto import models
-# --- END OF FIX ---
 import google.generativeai as genai
 
 # --- A simpler, more direct prompt for Gemini ---
@@ -70,8 +68,10 @@ if __name__ == "__main__":
         else:
             print(f"Found latest article: {title}")
             
-            # The rest of the code correctly uses the 'Client' object
-            client = Client()
+            # --- THE FINAL FIX IS HERE ---
+            client = Client(base_uri='https://bsky.social')
+            # --- END OF FINAL FIX ---
+            
             client.login(bsky_handle, bsky_password)
             
             last_link = get_last_posted_link(client, bsky_handle)
