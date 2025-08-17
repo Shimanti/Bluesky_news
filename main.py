@@ -1,19 +1,21 @@
 import os
 import feedparser
-from atproto import Client  # This is the correct, simple import now
+# The correct, official import
+from atproto_client import Client, models
 import google.generativeai as genai
 
-# This prompt is clean and has proven to work well.
+# This prompt is clean and proven to work.
 def create_bluesky_text(title):
+    """Uses Gemini to create a summary to appear above a link card."""
     genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
     model = genai.GenerativeModel('gemini-1.5-flash')
     prompt = f"""
-    You are an AI news bot for BlueSky writing text that appears ABOVE a link card.
+    You are an AI news bot for BlueSky, writing text that appears ABOVE a link card.
     RULES:
     - Your response must be under 290 characters.
     - Summarize the article title in an engaging way.
     - Include 2-3 relevant hashtags like #AI, #TechNews.
-    - DO NOT include the URL. It will be in the link card.
+    - DO NOT include the URL. The link card will handle it.
     Article Title: "{title}"
     Generate the summary text now:
     """
@@ -24,34 +26,20 @@ def create_bluesky_text(title):
         print(f"Error generating content with Gemini: {e}")
         return None
 
-# This function is correct.
+# This function is correct and necessary.
 def get_last_posted_link(client, handle):
+    """Fetches the link from the most recent post's link card."""
     try:
         response = client.get_author_feed(handle, limit=1)
         if not response.feed: return None
         latest_post = response.feed[0].post
-        # We check the embed for the link card's URI
         if hasattr(latest_post.embed, 'external') and hasattr(latest_post.embed.external, 'uri'):
             return latest_post.embed.external.uri
     except Exception as e:
         print(f"Could not retrieve last post: {e}")
     return None
 
-# --- THE CLEAN, MODERN WAY TO POST A LINK CARD ---
-def post_to_bluesky(client, text_body, article_url):
-    """Posts text and a rich link card to BlueSky."""
-    try:
-        # Step 1: The library needs to look at the URL first to create the embed
-        response = client.app.bsky.embed.external.get(uri=article_url)
-        embed = response.embed
-        
-        # Step 2: Post the text AND the generated embed card
-        client.post(text=text_body, embed=embed)
-        print("Successfully posted to BlueSky with a link card!")
-    except Exception as e:
-        print(f"Error posting to BlueSky: {e}")
-
-# --- MAIN EXECUTION ---
+# --- MAIN EXECUTION: Simplified and Corrected ---
 if __name__ == "__main__":
     print("Bot starting...")
     bsky_handle = os.environ.get("BLUESKY_HANDLE")
@@ -59,7 +47,7 @@ if __name__ == "__main__":
     gemini_key = os.environ.get("GEMINI_API_KEY")
 
     if not all([gemini_key, bsky_handle, bsky_password]):
-        print("ERROR: Make sure all environment variables are set.")
+        print("ERROR: Environment variables are not set.")
     else:
         title, link = get_latest_ai_news()
         if not (title and link):
@@ -67,6 +55,7 @@ if __name__ == "__main__":
         else:
             print(f"Found latest article: {title} ({link})")
             
+            # The correct, simple way to create the client
             client = Client()
             client.login(bsky_handle, bsky_password)
             
@@ -79,7 +68,12 @@ if __name__ == "__main__":
 
                 if post_text:
                     print(f"Generated text (Length: {len(post_text)}):\n{post_text}")
-                    post_to_bluesky(client, post_text, link)
+                    
+                    # The simplest, most reliable way to post.
+                    # The library will automatically find the link and create the card.
+                    final_post_content = f"{post_text} {link}"
+                    client.send_post(final_post_content)
+                    print("Successfully sent post to BlueSky.")
                 else:
                     print("Could not generate post text from Gemini.")
     
