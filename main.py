@@ -1,91 +1,119 @@
-# main.py
-
-import feedparser
 import os
-from atproto import Client
+import feedparser
+import requests
+from atproto import Client, models
 import google.generativeai as genai
 
-# --- Part A: Fetch the News ---
-def get_latest_ai_news():
-    """Fetches the latest AI news item from Google News RSS feed."""
-    url = "https://news.google.com/rss/search?q=artificial+intelligence&hl=en-US&gl=US&ceid=US:en"
-    feed = feedparser.parse(url)
-    if not feed.entries:
-        return None, None
-    # Get the most recent article
-    latest_article = feed.entries[0]
-    return latest_article.title, latest_article.link
+# --- NEW Part: URL Shortener ---
+def shorten_url(long_url):
+    """Shortens a URL using the TinyURL API."""
+    api_url = f"http://tinyurl.com/api-create.php?url={long_url}"
+    try:
+        response = requests.get(api_url)
+        if response.status_code == 200:
+            short_url = response.text
+            print(f"Successfully shortened URL to: {short_url}")
+            return short_url
+        else:
+            print(f"Error shortening URL: Status code {response.status_code}")
+            return long_url # Fallback to the long URL if API fails
+    except Exception as e:
+        print(f"An exception occurred while shortening URL: {e}")
+        return long_url # Fallback
 
- # main.py (continued...)
-
-# --- Part B: Summarize with Gemini ---
-def create_bluesky_post(title, link):
-    """Uses Gemini to create a BlueSky post from a news title and link."""
+# --- MODIFIED Part: Gemini Post Generation ---
+def create_bluesky_text(title):
+    """Uses Gemini to create ONLY the text part of a BlueSky post."""
     genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-    model = genai.GenerativeModel('gemini-1.5-flash') # Using the fast and cheap model
-
+    model = genai.GenerativeModel('gemini-1.5-flash')
+    
+    # This prompt is now much stricter and aims for a shorter character count.
     prompt = f"""
-    You are an AI news bot for the social media platform BlueSky.
-    Your task is to create a short, engaging post about a new AI article.
+    You are an AI news bot for BlueSky. Your task is to write the TEXT for a post about an AI article.
 
     RULES:
-    - The post must be under 300 characters.
-    - Be informative and slightly enthusiastic.
-    - Include 2-3 relevant hashtags like #AI, #ArtificialIntelligence, #TechNews.
-    - ALWAYS include the full link to the article at the end.
+    - Your entire output (text + hashtags) MUST be under 260 characters. This is a strict limit.
+    - Be informative and engaging.
+    - Include 2-3 relevant hashtags like #AI, #TechNews, #MachineLearning.
+    - DO NOT include the URL in your response. The URL will be added later.
 
     Article Title: "{title}"
-    Article Link: {link}
 
-    Now, generate the BlueSky post:
+    Generate ONLY the descriptive text and hashtags for the post:
     """
-
     try:
         response = model.generate_content(prompt)
         return response.text.strip()
     except Exception as e:
         print(f"Error generating content with Gemini: {e}")
-        return None   
+        return None
 
-# main.py (continued...)
-
-# --- Part C: Post to BlueSky ---
-def post_to_bluesky(text):
-    """Logs into BlueSky and sends a post."""
-    client = Client()
+# --- Part C: Get Last Post and Post to BlueSky (Unchanged) ---
+def get_last_posted_link(client, handle):
     try:
-        client.login(
-            os.environ.get("BLUESKY_HANDLE"),
-            os.environ.get("BLUESKY_APP_PASSWORD")
-        )
-        # The library automatically finds URLs and turns them into rich media cards!
+        response = client.get_author_feed(handle, limit=1)
+        if not response.feed:
+            return None
+        latest_post = response.feed[0].post
+        if latest_post.embed and isinstance(latest_post.embed, models.AppBskyEmbedExternal.Main):
+            return latest_post.embed.external.uri
+    except Exception as e:
+        print(f"Could not retrieve last post: {e}")
+    return None
+
+def post_to_bluesky(client, text):
+    try:
         client.send_post(text)
         print("Successfully posted to BlueSky!")
     except Exception as e:
         print(f"Error posting to BlueSky: {e}")
 
- # main.py (continued...)
-
-# --- Part D: Main Execution ---
+# --- MODIFIED Part: Main Execution ---
 if __name__ == "__main__":
     print("Bot starting...")
 
-    # Check for credentials
-    if not all([os.environ.get("GEMINI_API_KEY"), os.environ.get("BLUESKY_HANDLE"), os.environ.get("BLUESKY_APP_PASSWORD")]):
-        print("ERROR: Make sure GEMINI_API_KEY, BLUESKY_HANDLE, and BLUESKY_APP_PASSWORD are set as environment variables.")
+    gemini_key = os.environ.get("GEMINI_API_KEY")
+    bsky_handle = os.environ.get("BLUESKY_HANDLE")
+    bsky_password = os.environ.get("BLUESKY_APP_PASSWORD")
+
+    if not all([gemini_key, bsky_handle, bsky_password]):
+        print("ERROR: Make sure all environment variables are set.")
     else:
         title, link = get_latest_ai_news()
-
-        if title and link:
-            print(f"Found article: {title}")
-            post_text = create_bluesky_post(title, link)
-
-            if post_text:
-                print(f"Generated post:\n{post_text}")
-                post_to_bluesky(post_text)
-            else:
-                print("Could not generate post text.")
-        else:
+        if not (title and link):
             print("Could not find any news articles.")
+        else:
+            print(f"Found latest article: {title}")
+            
+            client = Client()
+            client.login(bsky_handle, bsky_password)
+            
+            # We compare the original, long link to avoid re-posting
+            last_link = get_last_posted_link(client, bsky_handle)
+            if link == last_link:
+                print("This article has already been posted. No new content to share.")
+            else:
+                print("New article found. Generating and assembling post...")
+                
+                # 1. Generate the text part
+                post_text_only = create_bluesky_text(title)
+
+                if post_text_only:
+                    print(f"Generated text part:\n{post_text_only}")
+                    
+                    # 2. Shorten the URL
+                    short_link = shorten_url(link)
+                    
+                    # 3. Assemble the final post
+                    final_post = f"{post_text_only}\n\n{short_link}"
+                    print(f"Final post to be sent (Length: {len(final_post)} chars):\n{final_post}")
+
+                    # 4. Check length one last time before posting
+                    if len(final_post) > 300:
+                        print("ERROR: Final generated post is still over 300 characters. Skipping post.")
+                    else:
+                        post_to_bluesky(client, final_post)
+                else:
+                    print("Could not generate post text from Gemini.")
     
-    print("Bot finished.")       
+    print("Bot finished.")      
