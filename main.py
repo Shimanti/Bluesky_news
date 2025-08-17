@@ -1,10 +1,10 @@
 import os
 import feedparser
-# The correct, official import
-from atproto_client import Client, models
+# The correct, official import that matches requirements.txt
+from atproto import Client
 import google.generativeai as genai
 
-# This prompt is clean and proven to work.
+# This prompt is clean and has worked well in tests.
 def create_bluesky_text(title):
     """Uses Gemini to create a summary to appear above a link card."""
     genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
@@ -26,13 +26,14 @@ def create_bluesky_text(title):
         print(f"Error generating content with Gemini: {e}")
         return None
 
-# This function is correct and necessary.
+# This function is correct and necessary for preventing duplicates.
 def get_last_posted_link(client, handle):
     """Fetches the link from the most recent post's link card."""
     try:
         response = client.get_author_feed(handle, limit=1)
         if not response.feed: return None
         latest_post = response.feed[0].post
+        # This safely checks if an embed with an external link exists
         if hasattr(latest_post.embed, 'external') and hasattr(latest_post.embed.external, 'uri'):
             return latest_post.embed.external.uri
     except Exception as e:
@@ -55,9 +56,10 @@ if __name__ == "__main__":
         else:
             print(f"Found latest article: {title} ({link})")
             
-            # The correct, simple way to create the client
+            # The official, simple way to create the client and log in
             client = Client()
             client.login(bsky_handle, bsky_password)
+            print("Successfully logged into BlueSky.") # We will now see this message if passwords work!
             
             last_link = get_last_posted_link(client, bsky_handle)
             if link == last_link:
@@ -69,10 +71,9 @@ if __name__ == "__main__":
                 if post_text:
                     print(f"Generated text (Length: {len(post_text)}):\n{post_text}")
                     
-                    # The simplest, most reliable way to post.
                     # The library will automatically find the link and create the card.
                     final_post_content = f"{post_text} {link}"
-                    client.send_post(final_post_content)
+                    client.post(final_post_content)
                     print("Successfully sent post to BlueSky.")
                 else:
                     print("Could not generate post text from Gemini.")
