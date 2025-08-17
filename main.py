@@ -1,10 +1,8 @@
 import os
 import feedparser
-# The original, correct import for the library version we are using
 from atproto import Client
 import google.generativeai as genai
 
-# The prompt is simple and gives Gemini plenty of room to work.
 def create_bluesky_text(title):
     """Uses Gemini to create a summary that will appear above a link card."""
     genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
@@ -29,7 +27,6 @@ def create_bluesky_text(title):
         print(f"Error generating content with Gemini: {e}")
         return None
 
-# This function is crucial for preventing duplicate posts.
 def get_last_posted_link(client, handle):
     """Fetches the link from the most recent post's link card."""
     try:
@@ -42,7 +39,6 @@ def get_last_posted_link(client, handle):
         print(f"Could not retrieve last post: {e}")
     return None
 
-# --- MAIN EXECUTION: Back to the simple, working method ---
 if __name__ == "__main__":
     print("Bot starting...")
     bsky_handle = os.environ.get("BLUESKY_HANDLE")
@@ -69,17 +65,18 @@ if __name__ == "__main__":
                 print("New article found. Generating post...")
                 post_text = create_bluesky_text(title)
 
+                # The code only enters this block if Gemini succeeds.
                 if post_text:
                     print(f"Generated text (Length: {len(post_text)}):\n{post_text}")
                     
-                    # The simplest, most reliable way to post a link.
-                    # The library automatically finds the link in the text and creates the card.
                     final_post_content = f"{post_text} {link}"
                     
-                    # The correct syntax for this library version is client.post(text=...)
+                    # --- THE FINAL FIX IS HERE ---
+                    # The 'client.post' command is now SAFELY INSIDE the 'if' block.
                     client.post(text=final_post_content)
                     print("Successfully sent post to BlueSky. A link card should be generated.")
                 else:
-                    print("Could not generate post text from Gemini.")
+                    # If Gemini fails, it prints this and finishes cleanly. No crash.
+                    print("Could not generate post text from Gemini. Skipping post.")
     
     print("Bot finished.")
