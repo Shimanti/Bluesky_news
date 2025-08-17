@@ -116,7 +116,7 @@ def post_to_bluesky(text, handle, password):
         print("✅ Login successful!")
         
         print(f"📤 Posting text: {text}")
-        result = client.post(text=text)
+        result = client.post(text=text, link=link)
         print(f"📮 Post result: {result}")
         
         log_step("BlueSky posting", "SUCCESS")
