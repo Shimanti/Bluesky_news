@@ -1,14 +1,19 @@
 import os
 import feedparser
-# This is the official, correct import for the library version we are using.
 from atproto import Client
 import google.generativeai as genai
 
-# This function is logically sound and does not need to change.
+def sanitize_text(text):
+    """Removes any @ mentions from the text to prevent resolution errors."""
+    words = text.split()
+    sanitized_words = [word for word in words if not word.startswith('@')]
+    return ' '.join(sanitized_words)
+
 def create_bluesky_text(title):
     """Uses Gemini to create a summary that will appear above a link card."""
     genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
     model = genai.GenerativeModel('gemini-1.5-flash')
+    # Updated prompt to explicitly forbid @ mentions as a first line of defense.
     prompt = f"""
     You are an AI news bot for BlueSky. You are writing text that will appear ABOVE a rich link card.
     
@@ -16,7 +21,7 @@ def create_bluesky_text(title):
     - Your response must be under 290 characters.
     - Summarize the article title in an engaging and concise way.
     - Include 2-3 relevant hashtags like #AI, #TechNews, #ArtificialIntelligence.
-    - DO NOT include the URL in your response. The URL will be automatically added in the link card.
+    - CRITICAL: DO NOT include any @ mentions or user handles in your response.
 
     Article Title: "{title}"
     
@@ -29,7 +34,6 @@ def create_bluesky_text(title):
         print(f"Error generating content with Gemini: {e}")
         return None
 
-# This function is crucial for preventing duplicate posts.
 def get_last_posted_link(client, handle):
     """Fetches the link from the most recent post's link card."""
     try:
@@ -42,7 +46,6 @@ def get_last_posted_link(client, handle):
         print(f"Could not retrieve last post: {e}")
     return None
 
-# --- MAIN EXECUTION: Back to the simple, working method ---
 if __name__ == "__main__":
     print("Bot starting...")
     bsky_handle = os.environ.get("BLUESKY_HANDLE")
@@ -67,20 +70,21 @@ if __name__ == "__main__":
                 print("Article has already been posted. Halting.")
             else:
                 print("New article found. Generating post...")
-                post_text = create_bluesky_text(title)
+                raw_post_text = create_bluesky_text(title)
 
-                if post_text:
-                    print(f"✅ Step 2: Generated text from Gemini:\n{post_text}")
+                if raw_post_text:
+                    print(f"✅ Step 2: Generated raw text from Gemini:\n{raw_post_text}")
                     
-                    # The simplest, most reliable way to post a link.
-                    # The library automatically finds the link in the text and creates the card.
-                    final_post_content = f"{post_text} {link}"
+                    # --- THE FINAL FIX IS HERE ---
+                    # We clean the text before using it.
+                    sanitized_text = sanitize_text(raw_post_text)
+                    print(f"✅ Step 3: Sanitized text (mentions removed):\n{sanitized_text}")
                     
-                    # This is the correct syntax for this library version. It solves the TypeError.
+                    final_post_content = f"{sanitized_text} {link}"
+                    
                     client.post(text=final_post_content)
-                    print("✅ Step 3: Successfully sent post to BlueSky!")
+                    print("✅ Step 4: SUCCESS! Post has been sent to BlueSky!")
                 else:
-                    # This handles Gemini failures cleanly without crashing. It solves the NameError.
                     print("Could not generate post text from Gemini. Halting for this run.")
     
     print("Bot finished.")
