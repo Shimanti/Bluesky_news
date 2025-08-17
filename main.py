@@ -1,6 +1,9 @@
 import os
 import feedparser
-from atproto import Client, models
+# --- THE FIX IS HERE ---
+from atproto.xrpc_client import Client
+from atproto import models
+# --- END OF FIX ---
 import google.generativeai as genai
 
 # --- A simpler, more direct prompt for Gemini ---
@@ -42,12 +45,10 @@ def get_last_posted_link(client, handle):
         print(f"Could not retrieve last post: {e}")
     return None
 
-# --- MODIFIED Part: The Final Fix is Here ---
+# --- Post to BlueSky ---
 def post_to_bluesky(client, text_body, original_article_url):
     """Sends a post to BlueSky, letting it create a rich link card."""
     try:
-        # THE FIX: We removed `text=` from the function call.
-        # The library automatically finds the URL in the string and creates the card.
         client.send_post(f"{text_body} {original_article_url}")
         print("Successfully posted to BlueSky with a link card!")
     except Exception as e:
@@ -69,6 +70,7 @@ if __name__ == "__main__":
         else:
             print(f"Found latest article: {title}")
             
+            # The rest of the code correctly uses the 'Client' object
             client = Client()
             client.login(bsky_handle, bsky_password)
             
