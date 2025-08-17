@@ -21,9 +21,9 @@ def create_bluesky_text(title):
     You are an AI news bot for BlueSky. Your task is to write a short, engaging, TEXT-ONLY post.
     
     RULES:
-    - Your response must be under 290 characters.
+    - Your response must be under 250 characters.
     - Summarize the article title in an engaging way.
-    - Include 2-3 relevant hashtags like #AI, #TechNews.
+    - Include 2 relevant hashtags like #AI, #TechNews.
     - CRITICAL: DO NOT include any URL or link in your response.
 
     Article Title: "{title}"
