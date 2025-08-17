@@ -1,22 +1,33 @@
 import os
 import feedparser
-import requests
+import httpx  # Switched from requests to httpx
 from atproto import Client, models
 import google.generativeai as genai
 
-# --- NEW Part: URL Shortener using is.gd (More Reliable) ---
+# --- NEW Part: URL Shortener using CleanURI (More Robust) ---
 def shorten_url(long_url):
-    """Shortens a URL using the is.gd API."""
-    api_url = f"https://is.gd/create.php?format=simple&url={long_url}"
+    """Shortens a URL using the CleanURI API."""
+    api_url = "https://cleanuri.com/api/v1/shorten"
     try:
-        response = requests.get(api_url, timeout=5) # Added a 5-second timeout
-        response.raise_for_status() # This will raise an error if the request fails (e.g., 4xx or 5xx)
-        short_url = response.text
-        print(f"Successfully shortened URL to: {short_url}")
-        return short_url
-    except requests.exceptions.RequestException as e:
+        # Use a POST request with the URL as data
+        with httpx.Client(timeout=10.0) as client:
+            response = client.post(api_url, data={'url': long_url})
+            response.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
+            
+            # The result is in JSON format
+            result_json = response.json()
+            short_url = result_json.get("result_url")
+
+            if short_url:
+                print(f"Successfully shortened URL to: {short_url}")
+                return short_url
+            else:
+                print("CleanURI API did not return a short URL.")
+                return long_url # Fallback if JSON is weird
+
+    except httpx.RequestError as e:
         print(f"An exception occurred while shortening URL: {e}")
-        return long_url # Fallback to the long URL if API fails
+        return long_url  # Fallback to the long URL if the API call fails
 
 # --- MODIFIED Part: Gemini Post Generation (Stricter Prompt) ---
 def create_bluesky_text(title):
@@ -24,7 +35,6 @@ def create_bluesky_text(title):
     genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
     model = genai.GenerativeModel('gemini-1.5-flash')
     
-    # This prompt is now much more aggressive about the length limit.
     prompt = f"""
     You are an AI news bot for BlueSky. Your task is to write a very short, concise summary of an AI article title.
 
@@ -33,7 +43,7 @@ def create_bluesky_text(title):
     - Be informative and engaging.
     - Include 2-3 relevant hashtags like #AI, #TechNews.
     - DO NOT include the URL in your response. The URL will be added separately.
-    - EXAMPLE of a good response: "Google's new AI can write poetry! The model, named 'Bard', shows surprising creative flair, raising new questions about machine artistry. #AI #GoogleAI #Poetry"
+    - EXAMPLE of a good response: "Google's new AI can write poetry! The model shows surprising creative flair, raising new questions about machine artistry. #AI #GoogleAI #Poetry"
 
     Article Title: "{title}"
 
@@ -41,11 +51,9 @@ def create_bluesky_text(title):
     """
     try:
         response = model.generate_content(prompt)
-        # We will also add a manual trim just in case Gemini ignores the prompt
         text = response.text.strip()
         if len(text) > 240:
             print("Warning: Gemini response exceeded 240 characters. Truncating.")
-            # Trim to 237 chars and add "..."
             text = text[:237] + "..."
         return text
     except Exception as e:
@@ -56,8 +64,7 @@ def create_bluesky_text(title):
 def get_last_posted_link(client, handle):
     try:
         response = client.get_author_feed(handle, limit=1)
-        if not response.feed:
-            return None
+        if not response.feed: return None
         latest_post = response.feed[0].post
         if latest_post.embed and isinstance(latest_post.embed, models.AppBskyEmbedExternal.Main):
             return latest_post.embed.external.uri
@@ -72,10 +79,9 @@ def post_to_bluesky(client, text):
     except Exception as e:
         print(f"Error posting to BlueSky: {e}")
 
-# --- MODIFIED Part: Main Execution (Slightly cleaner assembly) ---
+# --- Main Execution (Unchanged) ---
 if __name__ == "__main__":
     print("Bot starting...")
-    # ... [rest of the script is the same] ...
     gemini_key = os.environ.get("GEMINI_API_KEY")
     bsky_handle = os.environ.get("BLUESKY_HANDLE")
     bsky_password = os.environ.get("BLUESKY_APP_PASSWORD")
@@ -97,17 +103,12 @@ if __name__ == "__main__":
                 print("This article has already been posted. No new content to share.")
             else:
                 print("New article found. Generating and assembling post...")
-                
                 post_text_only = create_bluesky_text(title)
-
                 if post_text_only:
                     print(f"Generated text part:\n{post_text_only}")
-                    
                     short_link = shorten_url(link)
-                    
-                    final_post = f"{post_text_only}\n{short_link}" # Simplified the assembly
+                    final_post = f"{post_text_only}\n{short_link}"
                     print(f"Final post to be sent (Length: {len(final_post)} chars):\n{final_post}")
-
                     if len(final_post) > 300:
                         print("ERROR: Final generated post is still over 300 characters. Skipping post.")
                     else:
