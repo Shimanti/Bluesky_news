@@ -5,7 +5,6 @@ import google.generativeai as genai
 
 def get_latest_ai_news():
     """Fetches the title of the latest AI news item from Google News."""
-    # This function was missing, causing the NameError. It is now restored.
     url = "https://news.google.com/rss/search?q=artificial+intelligence&hl=en-US&gl=US&ceid=US:en"
     feed = feedparser.parse(url)
     if not feed.entries:
@@ -25,7 +24,6 @@ def create_bluesky_text(title):
     - Summarize the article title in an engaging way.
     - Include 2 relevant hashtags like #AI, #TechNews.
     - CRITICAL: DO NOT include any URL or link in your response.
-
     Article Title: "{title}"
     
     Generate the text-only post now:
@@ -43,7 +41,7 @@ if __name__ == "__main__":
     bsky_handle = os.environ.get("BLUESKY_HANDLE")
     bsky_password = os.environ.get("BLUESKY_APP_PASSWORD")
     gemini_key = os.environ.get("GEMINI_API_KEY")
-
+    
     if not all([gemini_key, bsky_handle, bsky_password]):
         print("ERROR: Environment variables are not set. Halting.")
     else:
@@ -55,7 +53,6 @@ if __name__ == "__main__":
             
             # Step 2: Generate the post text.
             post_text = create_bluesky_text(article_title)
-
             if post_text:
                 print(f"Generated text from Gemini:\n{post_text}")
                 
@@ -70,7 +67,6 @@ if __name__ == "__main__":
                 
                 except Exception as e:
                     print(f"CRITICAL ERROR during login or posting: {e}")
-
             else:
                 print("Could not generate post text from Gemini. Halting.")
         else:
