@@ -35,9 +35,10 @@ def get_latest_ai_news():
             return None
             
         title = feed.entries[0].title
+        link = feed.entries[0].link
         print(f"📰 Latest article: {title[:100]}...")
         log_step("RSS fetch", "SUCCESS")
-        return title
+        return title, link
         
     except Exception as e:
         log_step(f"RSS fetch failed: {e}", "ERROR")
