@@ -172,7 +172,7 @@ def main():
     log_step("Environment check", "SUCCESS")
     
     # Step 1: Get news
-    article_title = get_latest_ai_news()
+    # article_title = get_latest_ai_news()
     if not article_title:
         print("❌ FATAL: Could not fetch news article")
         sys.exit(1)
@@ -184,7 +184,7 @@ def main():
         sys.exit(1)
     
     # Step 3: Post to BlueSky
-    success = post_to_bluesky(post_text, bsky_handle, bsky_password)
+    # success = post_to_bluesky(post_text, bsky_handle, bsky_password)
     if not success:
         print("❌ FATAL: Could not post to BlueSky")
         sys.exit(1)
