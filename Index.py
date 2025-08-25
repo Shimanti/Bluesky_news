@@ -172,19 +172,19 @@ def main():
     log_step("Environment check", "SUCCESS")
     
     # Step 1: Get news
-    # article_title = get_latest_ai_news()
+    article_title = get_latest_ai_news()
     if not article_title:
         print("❌ FATAL: Could not fetch news article")
         sys.exit(1)
     
     # Step 2: Generate post
-    # post_text = create_bluesky_text(article_title)
+    post_text = create_bluesky_text(article_title)
     if not post_text:
         print("❌ FATAL: Could not generate post text")
         sys.exit(1)
     
     # Step 3: Post to BlueSky
-    # success = post_to_bluesky(post_text, bsky_handle, bsky_password)
+    success = post_to_bluesky(post_text, bsky_handle, bsky_password)
     if not success:
         print("❌ FATAL: Could not post to BlueSky")
         sys.exit(1)
@@ -195,7 +195,7 @@ def main():
 
 if __name__ == "__main__":
     try:
-        # main()
+        main()
     except KeyboardInterrupt:
         print("\n⏹️ Bot stopped by user")
         sys.exit(0)
