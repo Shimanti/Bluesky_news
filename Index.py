@@ -195,7 +195,7 @@ def main():
 
 if __name__ == "__main__":
     try:
-        main()
+        # main()
     except KeyboardInterrupt:
         print("\n⏹️ Bot stopped by user")
         sys.exit(0)
